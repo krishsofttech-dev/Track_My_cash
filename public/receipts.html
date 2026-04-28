@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Track My Cash — Receipts</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+  <style>
+    .receipts-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:16px; }
+    .receipt-card { background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
+    .receipt-img { width:100%; height:140px; object-fit:cover; background:var(--bg3); display:flex; align-items:center; justify-content:center; color:var(--text2); font-size:32px; }
+    .receipt-img img { width:100%; height:100%; object-fit:cover; }
+    .receipt-body { padding:14px; }
+    .receipt-name { font-size:14px; font-weight:600; margin-bottom:4px; }
+    .receipt-meta { display:flex; justify-content:space-between; align-items:center; }
+    .receipt-price { font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--accent); }
+    .receipt-date { font-size:11px; color:var(--text2); }
+    .receipt-actions { display:flex; gap:6px; margin-top:10px; }
+  </style>
+</head>
+<body>
+  <main class="main">
+    <div class="page-header">
+      <div><h1>Receipts</h1><p>Store and manage your purchase receipts</p></div>
+      <button class="btn btn-primary" onclick="openModal()"><i class="fas fa-plus"></i> Add Receipt</button>
+    </div>
+
+    <div class="filter-row">
+      <div class="search-wrap">
+        <i class="fas fa-search"></i>
+        <input class="search-input" id="search" placeholder="Search receipts..." oninput="filterReceipts()">
+      </div>
+      <input type="month" class="filter-select" id="monthFilter" onchange="filterReceipts()">
+    </div>
+
+    <div class="receipts-grid" id="receipts-grid">
+      <div class="empty-state"><i class="fas fa-spinner fa-spin"></i></div>
+    </div>
+  </main>
+
+  <div class="modal-overlay" id="modal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="modal-title">Add Receipt</h3>
+        <button class="modal-close" onclick="closeModal()"><i class="fas fa-times"></i></button>
+      </div>
+      <form id="r-form" onsubmit="saveReceipt(event)" enctype="multipart/form-data">
+        <input type="hidden" id="r-id">
+        <div class="form-group">
+          <label>Receipt Name</label>
+          <input type="text" id="r-name" placeholder="e.g. Grocery Store" required>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="form-group">
+            <label>Amount (LKR)</label>
+            <input type="number" id="r-price" min="0" step="0.01" placeholder="0.00" required>
+          </div>
+          <div class="form-group">
+            <label>Date</label>
+            <input type="date" id="r-date" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Receipt Image (optional)</label>
+          <input type="file" id="r-image" accept="image/*" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;width:100%;color:var(--text)">
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button type="button" class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Receipt</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="shared.js"></script>
+  <script>
+    renderSidebar('receipts.html');
+    let receipts = [];
+
+    document.getElementById('r-date').value = new Date().toISOString().split('T')[0];
+
+    async function load() {
+      const res = await fetch('/receipts');
+      receipts = await res.json();
+      render(receipts);
+    }
+
+    function render(data) {
+      const grid = document.getElementById('receipts-grid');
+      if (!data.length) {
+        grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><i class="fas fa-file-invoice"></i><p>No receipts yet</p></div>`;
+        return;
+      }
+      grid.innerHTML = data.map(r => `
+        <div class="receipt-card">
+          <div class="receipt-img">
+            ${r.image ? `<img src="/${r.image}" alt="receipt" onerror="this.parentElement.innerHTML='<i class=\\'fas fa-image\\'></i>'">` : '<i class="fas fa-image"></i>'}
+          </div>
+          <div class="receipt-body">
+            <div class="receipt-name">${r.name}</div>
+            <div class="receipt-meta">
+              <span class="receipt-price">${fmt(r.price)}</span>
+              <span class="receipt-date">${r.date}</span>
+            </div>
+            <div class="receipt-actions">
+              <button class="btn btn-danger btn-sm" onclick="deleteReceipt(${r.id})" style="width:100%;justify-content:center"><i class="fas fa-trash"></i> Delete</button>
+            </div>
+          </div>
+        </div>`).join('');
+    }
+
+    function filterReceipts() {
+      const q = document.getElementById('search').value.toLowerCase();
+      const m = document.getElementById('monthFilter').value;
+      render(receipts.filter(r =>
+        r.name.toLowerCase().includes(q) &&
+        (!m || (r.date && r.date.includes(m.replace('-','/'))))
+      ));
+    }
+
+    function openModal() {
+      document.getElementById('r-id').value = '';
+      document.getElementById('r-form').reset();
+      document.getElementById('r-date').value = new Date().toISOString().split('T')[0];
+      document.getElementById('modal-title').textContent = 'Add Receipt';
+      document.getElementById('modal').classList.add('open');
+    }
+    function closeModal() { document.getElementById('modal').classList.remove('open'); }
+
+    async function saveReceipt(e) {
+      e.preventDefault();
+      const id = document.getElementById('r-id').value;
+      const form = new FormData();
+      form.append('name', document.getElementById('r-name').value);
+      form.append('price', document.getElementById('r-price').value);
+      form.append('date', document.getElementById('r-date').value);
+      const file = document.getElementById('r-image').files[0];
+      if (file) form.append('image', file);
+      const url = id ? `/receipts/${id}` : '/add-receipt';
+      const method = id ? 'PUT' : 'POST';
+      const res = await fetch(url, { method, body: form });
+      if (res.ok) { toast('Receipt saved!'); closeModal(); load(); }
+      else toast('Error saving receipt', 'error');
+    }
+
+    async function deleteReceipt(id) {
+      confirmDelete('Delete this receipt?', async () => {
+        await fetch(`/receipts/${id}`, { method:'DELETE' });
+        toast('Receipt deleted'); load();
+      });
+    }
+
+    load();
+  </script>
+</body>
+</html>

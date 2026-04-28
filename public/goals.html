@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Track My Cash — Goals</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+  <style>
+    .goals-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:16px; }
+    .goal-card { background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius); padding:20px; }
+    .goal-header { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:12px; }
+    .goal-name { font-size:15px; font-weight:600; }
+    .goal-target { font-size:12px; color:var(--text2); margin-top:3px; }
+    .goal-amounts { display:flex; justify-content:space-between; margin-top:12px; font-size:12px; color:var(--text2); }
+    .goal-pct { font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:600; }
+    .goal-pct.done { color:var(--accent); }
+    .goal-pct.warn { color:var(--yellow); }
+    .goal-actions { display:flex; gap:6px; }
+    .deadline-badge { display:inline-flex; align-items:center; gap:4px; font-size:11px; padding:3px 8px; border-radius:6px; margin-top:6px; }
+    .deadline-ok { background:rgba(44,215,174,0.1); color:var(--accent); }
+    .deadline-warn { background:rgba(245,158,11,0.1); color:var(--yellow); }
+    .deadline-over { background:rgba(239,68,68,0.1); color:var(--red); }
+  </style>
+</head>
+<body>
+  <main class="main">
+    <div class="page-header">
+      <div><h1>Goals</h1><p>Set savings targets and track your progress</p></div>
+      <button class="btn btn-primary" onclick="openModal()"><i class="fas fa-plus"></i> New Goal</button>
+    </div>
+    <div class="goals-grid" id="goals-grid">
+      <div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading...</p></div>
+    </div>
+  </main>
+
+  <!-- Add/Edit Goal Modal -->
+  <div class="modal-overlay" id="modal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="modal-title">New Goal</h3>
+        <button class="modal-close" onclick="closeModal()"><i class="fas fa-times"></i></button>
+      </div>
+      <form onsubmit="saveGoal(event)">
+        <input type="hidden" id="g-id">
+        <div class="form-group">
+          <label>Goal Name</label>
+          <input type="text" id="g-name" placeholder="e.g. Emergency Fund, New Car" required>
+        </div>
+        <div class="form-group">
+          <label>Target Amount (LKR)</label>
+          <input type="number" id="g-target" min="1" step="0.01" placeholder="0.00" required>
+        </div>
+        <div class="form-group">
+          <label>Target Date (optional)</label>
+          <input type="date" id="g-deadline">
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button type="button" class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Goal</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Savings Modal -->
+  <div class="modal-overlay" id="save-modal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>Add Savings</h3>
+        <button class="modal-close" onclick="document.getElementById('save-modal').classList.remove('open')"><i class="fas fa-times"></i></button>
+      </div>
+      <p style="color:var(--text2);font-size:13px;margin-bottom:16px">Adding to: <strong id="save-goal-name"></strong></p>
+      <form onsubmit="addSavings(event)">
+        <input type="hidden" id="save-goal-id">
+        <div class="form-group">
+          <label>Amount to Add (LKR)</label>
+          <input type="number" id="save-amount" min="0.01" step="0.01" placeholder="0.00" required>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button type="button" class="btn btn-ghost" onclick="document.getElementById('save-modal').classList.remove('open')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Add Savings</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="shared.js"></script>
+  <script>
+    renderSidebar('goals.html');
+    let goals = [];
+
+    async function load() {
+      const res = await fetch('/goals');
+      goals = await res.json();
+      render();
+    }
+
+    function render() {
+      const grid = document.getElementById('goals-grid');
+      if (!goals.length) {
+        grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><i class="fas fa-bullseye"></i><p>No goals yet. Create your first savings goal!</p></div>`;
+        return;
+      }
+      grid.innerHTML = goals.map(g => {
+        const pct = Math.min(100, ((g.saved_amount / g.target_amount) * 100)).toFixed(1);
+        const fillClass = pct >= 100 ? 'done' : pct >= 70 ? '' : pct >= 40 ? 'warn' : 'danger';
+        let deadlineHtml = '';
+        if (g.deadline) {
+          const today = new Date();
+          const dl = new Date(g.deadline);
+          const days = Math.ceil((dl - today) / 86400000);
+          const cls = days < 0 ? 'deadline-over' : days < 30 ? 'deadline-warn' : 'deadline-ok';
+          const label = days < 0 ? `${Math.abs(days)} days overdue` : days === 0 ? 'Due today' : `${days} days left`;
+          deadlineHtml = `<span class="deadline-badge ${cls}"><i class="fas fa-calendar-alt"></i> ${label}</span>`;
+        }
+        return `
+          <div class="goal-card">
+            <div class="goal-header">
+              <div>
+                <div class="goal-name">${g.goal_name}</div>
+                <div class="goal-target">Target: ${fmt(g.target_amount)}</div>
+                ${deadlineHtml}
+              </div>
+              <div class="goal-actions">
+                <button class="btn btn-ghost btn-sm" onclick="openSaveModal(${g.id},'${g.goal_name}')"><i class="fas fa-plus"></i></button>
+                <button class="btn btn-danger btn-sm" onclick="deleteGoal(${g.id})"><i class="fas fa-trash"></i></button>
+              </div>
+            </div>
+            <div class="progress-bar"><div class="progress-fill ${fillClass}" style="width:${pct}%"></div></div>
+            <div class="goal-amounts">
+              <span>Saved: <strong style="color:var(--text)">${fmt(g.saved_amount)}</strong></span>
+              <span class="goal-pct ${fillClass === '' ? '' : fillClass}">${pct}%</span>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function openModal() {
+      document.getElementById('g-id').value = '';
+      document.getElementById('g-name').value = '';
+      document.getElementById('g-target').value = '';
+      document.getElementById('g-deadline').value = '';
+      document.getElementById('modal-title').textContent = 'New Goal';
+      document.getElementById('modal').classList.add('open');
+    }
+
+    function closeModal() { document.getElementById('modal').classList.remove('open'); }
+
+    async function saveGoal(e) {
+      e.preventDefault();
+      const body = {
+        goal_name: document.getElementById('g-name').value,
+        target_amount: document.getElementById('g-target').value,
+        deadline: document.getElementById('g-deadline').value || null
+      };
+      const res = await fetch('/add-goal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (res.ok) { toast('Goal created!'); closeModal(); load(); }
+      else toast('Error saving goal', 'error');
+    }
+
+    function openSaveModal(id, name) {
+      document.getElementById('save-goal-id').value = id;
+      document.getElementById('save-goal-name').textContent = name;
+      document.getElementById('save-amount').value = '';
+      document.getElementById('save-modal').classList.add('open');
+    }
+
+    async function addSavings(e) {
+      e.preventDefault();
+      const body = { id: document.getElementById('save-goal-id').value, saved_amount: document.getElementById('save-amount').value };
+      const res = await fetch('/update-goal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (res.ok) { toast('Savings added!'); document.getElementById('save-modal').classList.remove('open'); load(); }
+      else toast('Error', 'error');
+    }
+
+    async function deleteGoal(id) {
+      confirmDelete('Delete this goal?', async () => {
+        await fetch(`/delete-goal/${id}`, { method: 'DELETE' });
+        toast('Goal deleted'); load();
+      });
+    }
+
+    load();
+  </script>
+</body>
+</html>

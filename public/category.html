@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Track My Cash — Categories</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+  <style>
+
+    /* ── Summary bar ── */
+    .cat-summary {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin-bottom: 24px;
+      animation: fadeSlideUp 400ms var(--ease-out) 60ms both;
+    }
+
+    .summary-pill {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .summary-pill-icon {
+      width: 36px; height: 36px;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+
+    .summary-pill-label { font-size: 10.5px; color: var(--text-secondary); font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 3px; }
+    .summary-pill-val { font-size: 20px; font-weight: 800; letter-spacing: -0.4px; }
+
+    /* ── Category section headers ── */
+    .section-divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 24px 0 14px;
+    }
+
+    .section-divider-line {
+      flex: 1;
+      height: 1px;
+      background: var(--border-subtle);
+    }
+
+    .section-divider-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      padding: 4px 14px;
+      border-radius: 99px;
+      white-space: nowrap;
+    }
+
+    .section-divider-label.income {
+      background: rgba(0,212,168,0.08);
+      color: var(--green);
+      border: 1px solid rgba(0,212,168,0.15);
+    }
+
+    .section-divider-label.expense {
+      background: var(--red-dim);
+      color: var(--red);
+      border: 1px solid rgba(255,92,122,0.15);
+    }
+
+    /* ── Category grid ── */
+    .cat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 12px;
+    }
+
+    /* ── Category card ── */
+    .cat-card {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      padding: 16px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      transition: transform 200ms var(--ease-out),
+                  box-shadow 200ms,
+                  border-color 200ms;
+      animation: fadeSlideUp 350ms var(--ease-out) both;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cat-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; bottom: 0;
+      width: 3px;
+      border-radius: 0 3px 3px 0;
+      transition: opacity 200ms;
+      opacity: 0;
+    }
+
+    .cat-card.income-card::before  { background: var(--green); }
+    .cat-card.expense-card::before { background: var(--red); }
+
+    .cat-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+      border-color: var(--border-strong);
+    }
+
+    .cat-card:hover::before { opacity: 1; }
+
+    .cat-left { display: flex; align-items: center; gap: 13px; min-width: 0; }
+
+    .cat-icon {
+      width: 40px; height: 40px;
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+      transition: transform 200ms var(--ease-spring);
+    }
+
+    .cat-card:hover .cat-icon { transform: scale(1.1); }
+
+    .cat-name {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      letter-spacing: -0.2px;
+    }
+
+    .cat-type-tag {
+      display: inline-flex;
+      align-items: center;
+      font-size: 10.5px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 99px;
+      margin-top: 3px;
+    }
+
+    .cat-type-tag.income  { background: rgba(0,212,168,0.1); color: var(--green); }
+    .cat-type-tag.expense { background: var(--red-dim); color: var(--red); }
+
+    .cat-actions {
+      display: flex;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    /* ── Empty sections ── */
+    .cat-empty {
+      grid-column: 1/-1;
+      padding: 32px 20px;
+      text-align: center;
+      color: var(--text-tertiary);
+      font-size: 13px;
+    }
+
+    /* ── Icon picker ── */
+    .icon-grid {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 6px;
+      max-height: 160px;
+      overflow-y: auto;
+      margin-top: 8px;
+      padding: 4px;
+    }
+
+    .icon-btn {
+      width: 36px; height: 36px;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 120ms;
+    }
+
+    .icon-btn:hover { background: var(--bg-overlay); color: var(--text-primary); border-color: var(--border-default); }
+    .icon-btn.selected { background: var(--accent-dim); color: var(--accent); border-color: rgba(0,212,168,0.3); }
+
+    /* ── Search bar ── */
+    .top-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 20px;
+      animation: fadeSlideDown 400ms var(--ease-out) 120ms both;
+    }
+
+    /* ── Staggered animation for cards ── */
+    .cat-card:nth-child(1) { animation-delay: 80ms; }
+    .cat-card:nth-child(2) { animation-delay: 110ms; }
+    .cat-card:nth-child(3) { animation-delay: 140ms; }
+    .cat-card:nth-child(4) { animation-delay: 170ms; }
+    .cat-card:nth-child(5) { animation-delay: 200ms; }
+    .cat-card:nth-child(6) { animation-delay: 230ms; }
+    .cat-card:nth-child(n+7) { animation-delay: 260ms; }
+
+  </style>
+</head>
+<body>
+
+<main class="main">
+
+  <!-- Header -->
+  <div class="page-header">
+    <div>
+      <h1>Categories</h1>
+      <p>Organise and label your income and expense streams</p>
+    </div>
+    <button class="btn btn-primary" onclick="openModal()">
+      <i class="fas fa-plus"></i> Add Category
+    </button>
+  </div>
+
+  <!-- Summary -->
+  <div class="cat-summary" id="cat-summary">
+    <div class="summary-pill">
+      <div class="summary-pill-icon" style="background:var(--accent-dim);color:var(--green)"><i class="fas fa-tags"></i></div>
+      <div><div class="summary-pill-label">Total</div><div class="summary-pill-val" id="s-total" style="color:var(--text-primary)">—</div></div>
+    </div>
+    <div class="summary-pill">
+      <div class="summary-pill-icon" style="background:rgba(0,212,168,0.1);color:var(--green)"><i class="fas fa-arrow-down"></i></div>
+      <div><div class="summary-pill-label">Income Types</div><div class="summary-pill-val" id="s-income" style="color:var(--green)">—</div></div>
+    </div>
+    <div class="summary-pill">
+      <div class="summary-pill-icon" style="background:var(--red-dim);color:var(--red)"><i class="fas fa-arrow-up"></i></div>
+      <div><div class="summary-pill-label">Expense Types</div><div class="summary-pill-val" id="s-expense" style="color:var(--red)">—</div></div>
+    </div>
+  </div>
+
+  <!-- Search + Filter -->
+  <div class="top-controls">
+    <div class="search-wrap" style="max-width:320px">
+      <i class="fas fa-search"></i>
+      <input class="search-input" id="search" placeholder="Search categories…" oninput="render()">
+    </div>
+    <select class="filter-select" id="typeFilter" onchange="render()">
+      <option value="">All Types</option>
+      <option value="Income">Income</option>
+      <option value="Expense">Expense</option>
+    </select>
+    <div style="margin-left:auto;font-size:12px;color:var(--text-tertiary)" id="count-label"></div>
+  </div>
+
+  <!-- Category Lists -->
+  <div id="cat-content"></div>
+
+</main>
+
+<!-- Add/Edit Modal -->
+<div class="modal-overlay" id="modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="modal-title">Add Category</h3>
+      <button class="modal-close" onclick="closeModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <form onsubmit="saveCat(event)">
+      <input type="hidden" id="c-id">
+
+      <div class="form-group">
+        <label>Category Name</label>
+        <input type="text" id="c-name" placeholder="e.g. Food, Salary, Transport…" required>
+      </div>
+
+      <div class="form-group">
+        <label>Type</label>
+        <select id="c-type" onchange="updateIconPalette()" required>
+          <option value="Expense">Expense</option>
+          <option value="Income">Income</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Icon</label>
+        <div class="icon-grid" id="icon-grid"></div>
+        <input type="hidden" id="c-icon" value="fa-tag">
+      </div>
+
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:6px">
+        <button type="button" class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="save-btn">
+          <i class="fas fa-check"></i> Save Category
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="shared.js"></script>
+<script>
+  renderSidebar('category.html');
+
+  let cats = [];
+
+  // Icon sets per type
+  const EXPENSE_ICONS = ['fa-utensils','fa-car','fa-shopping-bag','fa-home','fa-heartbeat','fa-bolt','fa-film','fa-graduation-cap','fa-plane','fa-tshirt','fa-baby','fa-paw','fa-dumbbell','fa-music','fa-coffee','fa-gamepad','fa-bus','fa-gas-pump','fa-phone','fa-wifi'];
+  const INCOME_ICONS  = ['fa-briefcase','fa-laptop','fa-chart-line','fa-piggy-bank','fa-hand-holding-usd','fa-building','fa-store','fa-trophy','fa-gift','fa-coins','fa-money-bill','fa-university','fa-handshake','fa-star','fa-crown','fa-medal','fa-rocket','fa-seedling'];
+
+  function buildIconGrid(type) {
+    const icons = type === 'Income' ? INCOME_ICONS : EXPENSE_ICONS;
+    const current = document.getElementById('c-icon').value;
+    document.getElementById('icon-grid').innerHTML = icons.map(ico =>
+      `<button type="button" class="icon-btn ${ico === current ? 'selected' : ''}" data-icon="${ico}" onclick="selectIcon('${ico}')">
+        <i class="fas ${ico}"></i>
+      </button>`
+    ).join('');
+  }
+
+  function updateIconPalette() { buildIconGrid(document.getElementById('c-type').value); }
+
+  function selectIcon(ico) {
+    document.getElementById('c-icon').value = ico;
+    document.querySelectorAll('.icon-btn').forEach(b => {
+      b.classList.toggle('selected', b.dataset.icon === ico);
+    });
+  }
+
+  async function load() {
+    const res = await fetch('/api/categories');
+    cats = await res.json();
+    render();
+    updateSummary();
+  }
+
+  function updateSummary() {
+    const income  = cats.filter(c => c.type === 'Income').length;
+    const expense = cats.filter(c => c.type === 'Expense').length;
+    document.getElementById('s-total').textContent   = cats.length;
+    document.getElementById('s-income').textContent  = income;
+    document.getElementById('s-expense').textContent = expense;
+  }
+
+  function render() {
+    const q    = document.getElementById('search').value.toLowerCase();
+    const type = document.getElementById('typeFilter').value;
+
+    const filtered = cats.filter(c => {
+      const matchQ    = c.name.toLowerCase().includes(q);
+      const matchType = !type || c.type === type;
+      return matchQ && matchType;
+    });
+
+    document.getElementById('count-label').textContent = `${filtered.length} categor${filtered.length === 1 ? 'y' : 'ies'}`;
+
+    const income  = filtered.filter(c => c.type === 'Income');
+    const expense = filtered.filter(c => c.type === 'Expense');
+
+    let html = '';
+
+    if (!filtered.length) {
+      html = `<div class="empty-state"><i class="fas fa-tags"></i><strong>No categories found</strong><p>Try adjusting your search or add a new category.</p></div>`;
+    } else {
+      if (!type || type === 'Income') {
+        html += `
+          <div class="section-divider">
+            <div class="section-divider-line"></div>
+            <div class="section-divider-label income"><i class="fas fa-arrow-down"></i> Income (${income.length})</div>
+            <div class="section-divider-line"></div>
+          </div>
+          <div class="cat-grid">
+            ${income.length ? income.map(c => catCardHTML(c)).join('') : `<div class="cat-empty">No income categories yet</div>`}
+          </div>`;
+      }
+
+      if (!type || type === 'Expense') {
+        html += `
+          <div class="section-divider">
+            <div class="section-divider-line"></div>
+            <div class="section-divider-label expense"><i class="fas fa-arrow-up"></i> Expense (${expense.length})</div>
+            <div class="section-divider-line"></div>
+          </div>
+          <div class="cat-grid">
+            ${expense.length ? expense.map(c => catCardHTML(c)).join('') : `<div class="cat-empty">No expense categories yet</div>`}
+          </div>`;
+      }
+    }
+
+    document.getElementById('cat-content').innerHTML = html;
+  }
+
+  // icon map from name
+  const nameToIcon = {
+    food:'fa-utensils', groceries:'fa-utensils', restaurant:'fa-utensils',
+    transport:'fa-car', car:'fa-car', travel:'fa-plane', flight:'fa-plane',
+    salary:'fa-briefcase', work:'fa-briefcase', freelance:'fa-laptop',
+    shopping:'fa-shopping-bag', clothes:'fa-tshirt',
+    health:'fa-heartbeat', medical:'fa-heartbeat', gym:'fa-dumbbell',
+    electricity:'fa-bolt', utilities:'fa-bolt', wifi:'fa-wifi',
+    entertainment:'fa-film', movies:'fa-film', music:'fa-music',
+    education:'fa-graduation-cap', school:'fa-graduation-cap',
+    investment:'fa-chart-line', savings:'fa-piggy-bank',
+    rent:'fa-home', house:'fa-home', home:'fa-home',
+    coffee:'fa-coffee', gaming:'fa-gamepad',
+    fuel:'fa-gas-pump', gas:'fa-gas-pump',
+    phone:'fa-phone', internet:'fa-wifi',
+    income:'fa-coins', business:'fa-store',
+  };
+
+  function getIcon(cat) {
+    const saved = cat.icon;
+    if (saved && saved !== 'fa-tag') return saved;
+    const key = Object.keys(nameToIcon).find(k => cat.name.toLowerCase().includes(k));
+    if (key) return nameToIcon[key];
+    return cat.type === 'Income' ? 'fa-coins' : 'fa-tag';
+  }
+
+  function catCardHTML(c) {
+    const isInc = c.type === 'Income';
+    const ico   = getIcon(c);
+    const bgCol = isInc ? 'rgba(0,212,168,0.1)' : 'var(--red-dim)';
+    const fgCol = isInc ? 'var(--green)' : 'var(--red)';
+    return `
+      <div class="cat-card ${isInc ? 'income-card' : 'expense-card'}">
+        <div class="cat-left">
+          <div class="cat-icon" style="background:${bgCol};color:${fgCol}"><i class="fas ${ico}"></i></div>
+          <div>
+            <div class="cat-name">${c.name}</div>
+            <div class="cat-type-tag ${isInc ? 'income' : 'expense'}">${c.type}</div>
+          </div>
+        </div>
+        <div class="cat-actions">
+          <button class="btn btn-ghost btn-sm" onclick="editCat(${c.id})" title="Edit">
+            <i class="fas fa-pen"></i>
+          </button>
+          <button class="btn btn-danger btn-sm" onclick="deleteCat(${c.id})" title="Delete">
+            <i class="fas fa-trash"></i>
+          </button>
+        </div>
+      </div>`;
+  }
+
+  function openModal(cat = null) {
+    const isEdit = !!cat;
+    document.getElementById('modal-title').textContent = isEdit ? 'Edit Category' : 'New Category';
+    document.getElementById('c-id').value    = cat?.id   || '';
+    document.getElementById('c-name').value  = cat?.name || '';
+    document.getElementById('c-type').value  = cat?.type || 'Expense';
+    document.getElementById('c-icon').value  = cat?.icon || (cat?.type === 'Income' ? 'fa-coins' : 'fa-tag');
+    buildIconGrid(cat?.type || 'Expense');
+    document.getElementById('modal').classList.add('open');
+    setTimeout(() => document.getElementById('c-name').focus(), 100);
+  }
+
+  function closeModal() {
+    document.getElementById('modal').classList.remove('open');
+  }
+
+  function editCat(id) { openModal(cats.find(c => c.id === id)); }
+
+  async function saveCat(e) {
+    e.preventDefault();
+    const id   = document.getElementById('c-id').value;
+    const name = document.getElementById('c-name').value.trim();
+    const type = document.getElementById('c-type').value;
+    const icon = document.getElementById('c-icon').value;
+
+    if (!name) return;
+
+    const btn = document.getElementById('save-btn');
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…';
+    btn.disabled = true;
+
+    const body = { name, type, icon };
+    const url  = id ? `/api/categories/${id}` : '/api/categories';
+    const res  = await fetch(url, {
+      method: id ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+
+    btn.innerHTML = '<i class="fas fa-check"></i> Save Category';
+    btn.disabled = false;
+
+    if (res.ok) {
+      toast(id ? 'Category updated' : 'Category added');
+      closeModal();
+      await load();
+    } else {
+      toast('Something went wrong', 'error');
+    }
+  }
+
+  async function deleteCat(id) {
+    const cat = cats.find(c => c.id === id);
+    confirmDelete(`Delete "${cat?.name || 'this category'}"?`, async () => {
+      const res = await fetch(`/api/categories/${id}`, { method: 'DELETE' });
+      if (res.ok) { toast('Category deleted'); await load(); }
+      else toast('Delete failed', 'error');
+    });
+  }
+
+  load();
+</script>
+</body>
+</html>

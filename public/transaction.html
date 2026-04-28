@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Track My Cash — Transactions</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+  <main class="main">
+    <div class="page-header">
+      <div><h1>Transactions</h1><p>Manage all your income and expense records</p></div>
+      <button class="btn btn-primary" onclick="openModal()"><i class="fas fa-plus"></i> Add Transaction</button>
+    </div>
+
+    <div class="filter-row">
+      <div class="search-wrap">
+        <i class="fas fa-search"></i>
+        <input class="search-input" id="search" placeholder="Search transactions..." oninput="filterTable()">
+      </div>
+      <select class="filter-select" id="typeFilter" onchange="filterTable()">
+        <option value="">All Types</option>
+        <option value="Income">Income</option>
+        <option value="Expense">Expense</option>
+      </select>
+      <input type="month" class="filter-select" id="monthFilter" onchange="filterTable()">
+    </div>
+
+    <div class="card">
+      <div class="table-wrap">
+        <table id="tx-table">
+          <thead>
+            <tr>
+              <th>Name</th><th>Type</th><th>Amount</th><th>Description</th><th>Date</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="tx-body">
+            <tr><td colspan="6"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading...</p></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- Modal -->
+  <div class="modal-overlay" id="modal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="modal-title">Add Transaction</h3>
+        <button class="modal-close" onclick="closeModal()"><i class="fas fa-times"></i></button>
+      </div>
+      <form id="tx-form" onsubmit="saveTransaction(event)">
+        <input type="hidden" id="tx-id">
+        <div class="form-group">
+          <label>Name</label>
+          <input type="text" id="tx-name" placeholder="e.g. Salary, Groceries" required>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="form-group">
+            <label>Type</label>
+            <select id="tx-type" required>
+              <option value="Income">Income</option>
+              <option value="Expense">Expense</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Amount (LKR)</label>
+            <input type="number" id="tx-amount" min="0.01" step="0.01" placeholder="0.00" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Description / Category</label>
+          <input type="text" id="tx-desc" placeholder="e.g. Food, Transport, Salary" required>
+        </div>
+        <div class="form-group">
+          <label>Date</label>
+          <input type="date" id="tx-date" required>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px">
+          <button type="button" class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="save-btn">Save Transaction</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="shared.js"></script>
+  <script>
+    renderSidebar('transaction.html');
+    let allTx = [];
+
+    document.getElementById('tx-date').value = new Date().toISOString().split('T')[0];
+
+    async function load() {
+      const res = await fetch('/get-transactions');
+      allTx = await res.json();
+      renderTable(allTx);
+    }
+
+    function renderTable(data) {
+      const body = document.getElementById('tx-body');
+      if (!data.length) {
+        body.innerHTML = `<tr><td colspan="6"><div class="empty-state"><i class="fas fa-receipt"></i><p>No transactions found</p></div></td></tr>`;
+        return;
+      }
+      body.innerHTML = data.map(t => `
+        <tr>
+          <td><strong>${t.name}</strong></td>
+          <td><span class="badge badge-${t.type.toLowerCase()}">${t.type}</span></td>
+          <td style="font-family:'JetBrains Mono',monospace;color:${t.type==='Income'?'var(--accent)':'var(--red)'}">${fmt(t.price)}</td>
+          <td style="color:var(--text2)">${t.description}</td>
+          <td style="color:var(--text2)">${new Date(t.date).toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'})}</td>
+          <td>
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-ghost btn-sm" onclick="editTx(${t.id})"><i class="fas fa-pen"></i></button>
+              <button class="btn btn-danger btn-sm" onclick="deleteTx(${t.id})"><i class="fas fa-trash"></i></button>
+            </div>
+          </td>
+        </tr>`).join('');
+    }
+
+    function filterTable() {
+      const q = document.getElementById('search').value.toLowerCase();
+      const type = document.getElementById('typeFilter').value;
+      const month = document.getElementById('monthFilter').value;
+      let filtered = allTx.filter(t => {
+        const matchQ = t.name.toLowerCase().includes(q) || t.description.toLowerCase().includes(q);
+        const matchType = !type || t.type === type;
+        const matchMonth = !month || t.date?.startsWith(month);
+        return matchQ && matchType && matchMonth;
+      });
+      renderTable(filtered);
+    }
+
+    function openModal(tx = null) {
+      document.getElementById('modal-title').textContent = tx ? 'Edit Transaction' : 'Add Transaction';
+      document.getElementById('tx-id').value = tx?.id || '';
+      document.getElementById('tx-name').value = tx?.name || '';
+      document.getElementById('tx-type').value = tx?.type || 'Expense';
+      document.getElementById('tx-amount').value = tx?.price || '';
+      document.getElementById('tx-desc').value = tx?.description || '';
+      document.getElementById('tx-date').value = tx?.date?.split('T')[0] || new Date().toISOString().split('T')[0];
+      document.getElementById('modal').classList.add('open');
+    }
+
+    function closeModal() { document.getElementById('modal').classList.remove('open'); }
+
+    function editTx(id) { openModal(allTx.find(t => t.id === id)); }
+
+    async function saveTransaction(e) {
+      e.preventDefault();
+      const id = document.getElementById('tx-id').value;
+      const body = {
+        name: document.getElementById('tx-name').value,
+        type: document.getElementById('tx-type').value,
+        amount: document.getElementById('tx-amount').value,
+        description: document.getElementById('tx-desc').value,
+        date: document.getElementById('tx-date').value
+      };
+      const btn = document.getElementById('save-btn');
+      btn.textContent = 'Saving...'; btn.disabled = true;
+      const url = id ? `/transactions/${id}` : '/add-transaction';
+      const method = id ? 'PUT' : 'POST';
+      const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      btn.textContent = 'Save Transaction'; btn.disabled = false;
+      if (res.ok) { toast(id ? 'Transaction updated' : 'Transaction added'); closeModal(); load(); }
+      else { toast('Something went wrong', 'error'); }
+    }
+
+    async function deleteTx(id) {
+      confirmDelete('Delete this transaction?', async () => {
+        await fetch(`/transactions/${id}`, { method: 'DELETE' });
+        toast('Transaction deleted');
+        load();
+      });
+    }
+
+    load();
+  </script>
+</body>
+</html>

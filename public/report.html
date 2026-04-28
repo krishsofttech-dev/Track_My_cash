@@ -1,0 +1,114 @@
+<!-- report.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Track My Cash — Reports</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+  <style>
+    .report-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:20px; }
+    .chart-card { background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius); padding:20px; }
+    .chart-card h3 { font-size:13px; font-weight:600; color:var(--text2); margin-bottom:16px; text-transform:uppercase; letter-spacing:0.6px; }
+    .export-btn { display:inline-flex; align-items:center; gap:6px; }
+    .top-row { display:flex; gap:12px; align-items:center; }
+  </style>
+</head>
+<body>
+  <main class="main">
+    <div class="page-header">
+      <div><h1>Reports</h1><p>Visual breakdown of your finances</p></div>
+      <div class="top-row">
+        <select class="filter-select" id="yearSel" onchange="loadCharts()">
+          <option value="">All Years</option>
+        </select>
+        <button class="btn btn-ghost export-btn" onclick="exportCSV()"><i class="fas fa-download"></i> Export CSV</button>
+      </div>
+    </div>
+
+    <div class="stat-grid" style="margin-bottom:24px">
+      <div class="stat-card green"><div class="stat-label">Total Income</div><div class="stat-value green" id="r-income">—</div></div>
+      <div class="stat-card red"><div class="stat-label">Total Expenses</div><div class="stat-value red" id="r-expense">—</div></div>
+      <div class="stat-card blue"><div class="stat-label">Net Balance</div><div class="stat-value" id="r-net">—</div></div>
+    </div>
+
+    <div class="report-grid">
+      <div class="chart-card" style="grid-column:1/-1">
+        <h3>Monthly Income vs Expenses</h3>
+        <canvas id="barChart" height="120"></canvas>
+      </div>
+      <div class="chart-card">
+        <h3>Expense Categories</h3>
+        <canvas id="doughnut1" height="220"></canvas>
+      </div>
+      <div class="chart-card">
+        <h3>Income vs Expense Ratio</h3>
+        <canvas id="doughnut2" height="220"></canvas>
+      </div>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="shared.js"></script>
+  <script>
+    renderSidebar('report.html');
+    let bc, d1, d2, allTxData=[];
+
+    const sel = document.getElementById('yearSel');
+    const cur = new Date().getFullYear();
+    for(let y=cur;y>=cur-4;y--) sel.innerHTML+=`<option value="${y}">${y}</option>`;
+
+    async function loadCharts() {
+      const year = document.getElementById('yearSel').value;
+      const qs = year ? `?year=${year}` : '';
+      const [rep, monthly, cats, txs] = await Promise.all([
+        fetch('/get-report-data'+qs).then(r=>r.json()),
+        fetch('/income-vs-expenses'+qs).then(r=>r.json()),
+        fetch('/expense-categories'+qs).then(r=>r.json()),
+        fetch('/get-transactions').then(r=>r.json())
+      ]);
+      allTxData = txs;
+
+      document.getElementById('r-income').textContent = fmt(rep.totalIncome);
+      document.getElementById('r-expense').textContent = fmt(rep.totalExpense);
+      document.getElementById('r-net').textContent = fmt(rep.budgetLeft);
+
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      const inc = new Array(12).fill(0), exp = new Array(12).fill(0);
+      monthly.forEach(e=>{inc[e.month-1]=e.income;exp[e.month-1]=e.expense;});
+
+      if(bc) bc.destroy();
+      bc = new Chart(document.getElementById('barChart'),{
+        type:'bar', data:{labels:months,datasets:[
+          {label:'Income',data:inc,backgroundColor:'rgba(44,215,174,0.7)',borderRadius:4},
+          {label:'Expenses',data:exp,backgroundColor:'rgba(239,68,68,0.7)',borderRadius:4}
+        ]},
+        options:{responsive:true,plugins:{legend:{labels:{color:'#8b949e'}}},scales:{x:{ticks:{color:'#8b949e'},grid:{color:'rgba(48,54,61,0.4)'}},y:{ticks:{color:'#8b949e'},grid:{color:'rgba(48,54,61,0.4)'},beginAtZero:true}}}
+      });
+
+      if(d1) d1.destroy();
+      if(cats.length) d1 = new Chart(document.getElementById('doughnut1'),{
+        type:'doughnut',data:{labels:cats.map(c=>c.category),datasets:[{data:cats.map(c=>c.total),backgroundColor:['#2CD7AE','#3b82f6','#f59e0b','#ef4444','#8b5cf6','#ec4899']}]},
+        options:{responsive:true,plugins:{legend:{labels:{color:'#8b949e'}}}}
+      });
+
+      if(d2) d2.destroy();
+      d2 = new Chart(document.getElementById('doughnut2'),{
+        type:'doughnut',data:{labels:['Income','Expenses'],datasets:[{data:[rep.totalIncome,rep.totalExpense],backgroundColor:['rgba(44,215,174,0.8)','rgba(239,68,68,0.8)']}]},
+        options:{responsive:true,plugins:{legend:{labels:{color:'#8b949e'}}}}
+      });
+    }
+
+    function exportCSV() {
+      if(!allTxData.length){toast('No data to export','error');return;}
+      const rows=[['Name','Type','Amount','Description','Date'],...allTxData.map(t=>[t.name,t.type,t.price,t.description,new Date(t.date).toLocaleDateString()])];
+      const csv=rows.map(r=>r.map(v=>`"${v}"`).join(',')).join('\n');
+      const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='transactions.csv';a.click();
+      toast('CSV downloaded!');
+    }
+
+    loadCharts();
+  </script>
+</body>
+</html>

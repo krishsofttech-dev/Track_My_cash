@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Track My Cash — Budget</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+  <style>
+    .budget-list { display:grid; gap:14px; }
+    .budget-item { background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius); padding:18px 20px; }
+    .budget-top { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px; }
+    .budget-name { font-size:14px; font-weight:600; }
+    .budget-type-badge { font-size:11px; padding:3px 10px; border-radius:6px; }
+    .budget-type-income { background:rgba(44,215,174,0.1); color:var(--accent); }
+    .budget-type-expense { background:rgba(239,68,68,0.1); color:var(--red); }
+    .budget-nums { display:flex; gap:24px; font-size:12px; color:var(--text2); margin-top:10px; }
+    .budget-nums strong { color:var(--text); font-family:'JetBrains Mono',monospace; font-size:13px; }
+  </style>
+</head>
+<body>
+  <main class="main">
+    <div class="page-header">
+      <div><h1>Budget</h1><p>Plan and monitor your spending limits</p></div>
+      <button class="btn btn-primary" onclick="openModal()"><i class="fas fa-plus"></i> Add Budget</button>
+    </div>
+
+    <div class="stat-grid" style="margin-bottom:24px">
+      <div class="stat-card green">
+        <div class="stat-label">Total Budgeted</div>
+        <div class="stat-value" id="total-budget">LKR 0</div>
+      </div>
+      <div class="stat-card red">
+        <div class="stat-label">Total Actual</div>
+        <div class="stat-value red" id="total-actual">LKR 0</div>
+      </div>
+      <div class="stat-card blue">
+        <div class="stat-label">Remaining</div>
+        <div class="stat-value" id="total-remaining">LKR 0</div>
+      </div>
+    </div>
+
+    <div class="budget-list" id="budget-list">
+      <div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading...</p></div>
+    </div>
+  </main>
+
+  <div class="modal-overlay" id="modal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>Add Budget</h3>
+        <button class="modal-close" onclick="closeModal()"><i class="fas fa-times"></i></button>
+      </div>
+      <form onsubmit="saveBudget(event)">
+        <div class="form-group">
+          <label>Budget Type</label>
+          <select id="b-type" required>
+            <option value="Income Budget">Income Budget</option>
+            <option value="Expense Budget">Expense Budget</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Budget Amount (LKR)</label>
+          <input type="number" id="b-amount" min="0" step="0.01" placeholder="0.00" required>
+        </div>
+        <div class="form-group">
+          <label>Actual Amount (LKR)</label>
+          <input type="number" id="b-actual" min="0" step="0.01" placeholder="0.00" required>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button type="button" class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Budget</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="shared.js"></script>
+  <script>
+    renderSidebar('budget.html');
+    async function load() {
+      const res = await fetch('/get-budgets');
+      const data = await res.json();
+      let totalB=0, totalA=0, totalR=0;
+      data.forEach(b => { totalB+=+b.budget_amount; totalA+=+b.actual_amount; totalR+=+b.remaining_amount; });
+      document.getElementById('total-budget').textContent = fmt(totalB);
+      document.getElementById('total-actual').textContent = fmt(totalA);
+      document.getElementById('total-remaining').textContent = fmt(totalR);
+      const list = document.getElementById('budget-list');
+      if (!data.length) {
+        list.innerHTML = `<div class="empty-state"><i class="fas fa-wallet"></i><p>No budgets yet</p></div>`;
+        return;
+      }
+      list.innerHTML = data.map(b => {
+        const pct = b.budget_amount > 0 ? Math.min(100,(b.actual_amount/b.budget_amount)*100) : 0;
+        const fillClass = pct > 90 ? 'danger' : pct > 70 ? 'warn' : '';
+        const isExp = b.budget_type.toLowerCase().includes('expense');
+        return `<div class="budget-item">
+          <div class="budget-top">
+            <div>
+              <div class="budget-name">${b.budget_type}</div>
+              <span class="budget-type-badge ${isExp?'budget-type-expense':'budget-type-income'}">${isExp?'Expense':'Income'}</span>
+            </div>
+            <button class="btn btn-danger btn-sm" onclick="deleteBudget(${b.id})"><i class="fas fa-trash"></i></button>
+          </div>
+          <div class="progress-bar"><div class="progress-fill ${fillClass}" style="width:${pct}%"></div></div>
+          <div class="budget-nums">
+            <span>Budget: <strong>${fmt(b.budget_amount)}</strong></span>
+            <span>Actual: <strong>${fmt(b.actual_amount)}</strong></span>
+            <span>Remaining: <strong>${fmt(b.remaining_amount)}</strong></span>
+            <span style="margin-left:auto">${pct.toFixed(1)}% used</span>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    function openModal() { document.getElementById('modal').classList.add('open'); }
+    function closeModal() { document.getElementById('modal').classList.remove('open'); }
+
+    async function saveBudget(e) {
+      e.preventDefault();
+      const body = { budgetType: document.getElementById('b-type').value, budgetAmount: document.getElementById('b-amount').value, actualAmount: document.getElementById('b-actual').value };
+      const res = await fetch('/add-budget', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+      if (res.ok) { toast('Budget added'); closeModal(); load(); }
+      else toast('Error', 'error');
+    }
+
+    async function deleteBudget(id) {
+      confirmDelete('Delete this budget?', async () => {
+        await fetch(`/budgets/${id}`, { method:'DELETE' });
+        toast('Budget deleted'); load();
+      });
+    }
+
+    load();
+  </script>
+</body>
+</html>
