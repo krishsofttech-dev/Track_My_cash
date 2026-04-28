@@ -241,9 +241,10 @@ MIT — use it, fork it, build on it.
 
 ---
 
+
 <div align="center">
 
-*Designed and built with care*
+*Designed and built by [krishsofttech-dev](https://github.com/krishsofttech-dev)*
 
 <br/>
 
